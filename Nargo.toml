@@ -1,0 +1,7 @@
+[package]
+name = "indexed_merkle"
+type = "lib"
+authors = ["numtel"]
+license = "MIT"
+
+[dependencies]
