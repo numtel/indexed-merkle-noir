@@ -9,20 +9,18 @@ export class IndexedMerkleTree {
   insertItem(key, value) {
     const {items} = this;
     if(typeof key !== 'bigint' || key < 1n) throw new Error('invalid_key');
-    if(typeof value !== 'bigint' || value < 0n) throw new Error('invalid_key');
+    if(typeof value !== 'bigint' || value < 0n) throw new Error('invalid_value');
     if(items.find(x => x.key === key)) throw new Error('duplicate_key');
 
-    // find previous key
+    // Find previous key
     let prevKey = 0n;
     let prevIdx = 0;
     for(let i = 1; i < items.length; i++) {
       if(items[i].key < key && items[i].key > prevKey) {
         prevKey = items[i].key;
         prevIdx = i;
-        if(items[i].key + 1n === key) {
-          // Doesn't get any closer
-          break;
-        }
+        // Doesn't get any closer
+        if(items[i].key + 1n === key) break;
       }
     }
 
@@ -41,29 +39,25 @@ export class IndexedMerkleTree {
     const idx = items.findIndex(x => x.key === key)
     if(idx < 0) throw new Error('invalid_key');
 
-    // Pad to the next power-of-two with an explicit zero-leaf
     const leaves = items.map(x => poseidon4([ x.key, x.nextIdx, x.nextKey, x.value ]));
+
+    // Pad to the next power-of-two with an explicit zero-leaf
     const ZERO_LEAF = poseidon4([0n, 0n, 0n, 0n]);
+    const size = 1 << Math.ceil(Math.log2(leaves.length));
+    while(leaves.length < size) leaves.push(ZERO_LEAF);
 
     const siblings = [];
     let idxAtLevel = idx;
     let level = leaves;
 
-    while (level.length > 1) {
+    while(level.length > 1) {
       // flip the low bit instead of calculating left or right side of pair
       const sibIdx = idxAtLevel ^ 1;
-      if(sibIdx < level.length) {
-        siblings.push(level[sibIdx]);
-      }
+      if(sibIdx < level.length) siblings.push(level[sibIdx]);
 
       const nextLevel = [];
-      for (let i = 0; i < level.length; i += 2) {
-        if(i + 1 < level.length) {
-          nextLevel.push(poseidon2([ level[i], level[i + 1] ]));
-        } else {
-          // no matching pair
-          nextLevel.push(level[i]);
-        }
+      for(let i = 0; i < level.length; i += 2) {
+        nextLevel.push(poseidon2([level[i], level[i + 1]]));
       }
 
       idxAtLevel >>= 1; // parent index
@@ -72,7 +66,7 @@ export class IndexedMerkleTree {
 
     return {
       leafIdx: idx,
-      leaf: items[idx],
+      leaf: {...items[idx]}, // copy the leaf instead of passing reference
       root: level[0],
       siblings,
     }
@@ -98,12 +92,9 @@ export class IndexedMerkleTree {
       proof.leaf.value
     ]);
     let idx = proof.leafIdx;
+
     for (const sib of proof.siblings) {
-      if ((idx & 1) === 0) {
-        hash = poseidon2([hash, sib]);
-      } else {
-        hash = poseidon2([sib, hash]);
-      }
+      hash = poseidon2((idx & 1) === 0 ? [hash, sib] : [sib, hash]);
       idx >>= 1;
     }
 

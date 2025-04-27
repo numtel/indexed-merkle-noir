@@ -6,6 +6,10 @@
 * Values can be any field element
 * Max tree size: 2^32 items
 
+### TODO
+
+* State transition proofs: insert and update
+
 ## Installation
 
 ```
