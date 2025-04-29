@@ -38,7 +38,21 @@ export class IndexedMerkleTree {
     const newItemProof = this.generateProof(key);
     const updatedPrevProof = this.generateProof(prevKey);
 
-    return { exProof, newItemProof, updatedPrevProof };
+    return {
+      ogLeafIdx: exProof.leafIdx,
+      ogLeafKey: exProof.leaf.key,
+      ogLeafNextIdx: exProof.leaf.nextIdx,
+      ogLeafNextKey: exProof.leaf.nextKey,
+      ogLeafValue: exProof.leaf.value,
+      newLeafIdx: newItemProof.leafIdx,
+      newLeafKey: newItemProof.leaf.key,
+      newLeafValue: newItemProof.leaf.value,
+      rootBefore: exProof.root,
+      rootAfter: newItemProof.root,
+      siblingsBefore: exProof.siblings,
+      siblingsAfterOg: updatedPrevProof.siblings,
+      siblingsAfterNew: newItemProof.siblings,
+    };
   }
 
   generateProof(key) {
@@ -108,45 +122,70 @@ export class IndexedMerkleTree {
     return hash === proof.root;
   }
 
-  verifyInsertionProof({ exProof, newItemProof, updatedPrevProof }) {
+  verifyInsertionProof({
+      ogLeafIdx, ogLeafKey, ogLeafNextIdx, ogLeafNextKey, ogLeafValue,
+      newLeafIdx, newLeafKey, newLeafValue, rootBefore, rootAfter,
+      siblingsBefore, siblingsAfterOg, siblingsAfterNew,
+    }) {
     // 1) All three proofs must be individually valid
     if (
-      !this.verifyProof(exProof) ||
-      !this.verifyProof(newItemProof) ||
-      !this.verifyProof(updatedPrevProof)
+      !this.verifyProof({
+        leafIdx: ogLeafIdx,
+        leaf: {
+          key: ogLeafKey,
+          nextIdx: ogLeafNextIdx,
+          nextKey: ogLeafNextKey,
+          value: ogLeafValue,
+        },
+        root: rootBefore,
+        siblings: siblingsBefore,
+      }) ||
+      !this.verifyProof({
+        leafIdx: newLeafIdx,
+        leaf: {
+          key: newLeafKey,
+          nextIdx: ogLeafNextIdx,
+          nextKey: ogLeafNextKey,
+          value: newLeafValue,
+        },
+        root: rootAfter,
+        siblings: siblingsAfterNew,
+      }) ||
+      !this.verifyProof({
+        leafIdx: ogLeafIdx,
+        leaf: {
+          key: ogLeafKey,
+          nextIdx: newLeafIdx,
+          nextKey: newLeafKey,
+          value: ogLeafValue,
+        },
+        root: rootAfter,
+        siblings: siblingsAfterOg,
+      })
     ) {
       return false;
     }
 
-    // 2) After insertion, both "new‐item" and "updated‐prev" must land on the same root
-    if (newItemProof.root !== updatedPrevProof.root) {
-      return false;
-    }
-
-    const exSibs = exProof.siblings;
-    const newSibs = newItemProof.siblings;
-    const updSibs = updatedPrevProof.siblings;
-
-    // 3) The "after" proofs must have equal length
-    if (newSibs.length !== updSibs.length) {
+    // 2) The "after" proofs must have equal length
+    if (siblingsAfterNew.length !== siblingsAfterOg.length) {
       return false;
     }
     //    And the "before" proof’s length must be either the same (no height change)
     //    or exactly one less (height grew by 1, e.g. first insertion or crossing a power‐of‐two).
     if (
       !(
-        exSibs.length === newSibs.length ||
-        exSibs.length + 1 === newSibs.length
+        siblingsBefore.length === siblingsAfterNew.length ||
+        siblingsBefore.length + 1 === siblingsAfterNew.length
       )
     ) {
       return false;
     }
 
-    // 4) Find the first level at which the predecessor’s proof changed
+    // 3) Find the first level at which the predecessor’s proof changed
     let diffIdx = -1;
-    for (let i = 0; i < newSibs.length; i++) {
-      const before = exSibs[i];
-      const after  = updSibs[i];
+    for (let i = 0; i < siblingsAfterNew.length; i++) {
+      const before = siblingsBefore[i];
+      const after  = siblingsAfterOg[i];
       if (before !== after) {
         diffIdx = i;
         break;
@@ -158,23 +197,23 @@ export class IndexedMerkleTree {
     }
     // And ensure nothing *before* that level changed
     for (let i = 0; i < diffIdx; i++) {
-      if (exSibs[i] !== updSibs[i]) {
+      if (siblingsBefore[i] !== siblingsAfterOg[i]) {
         return false;
       }
     }
 
-    // 5) Now recompute the "sub‐root" of the new leaf up to diffIdx, and
+    // 4) Now recompute the "sub‐root" of the new leaf up to diffIdx, and
     //    check it matches the sibling that was injected into the prev-proof.
     let hash = poseidon4([
-      newItemProof.leaf.key,
-      newItemProof.leaf.nextIdx,
-      newItemProof.leaf.nextKey,
-      newItemProof.leaf.value
+      newLeafKey,
+      ogLeafNextIdx,
+      ogLeafNextKey,
+      newLeafValue
     ]);
-    let idx  = newItemProof.leafIdx;
+    let idx  = newLeafIdx;
 
     for (let lvl = 0; lvl < diffIdx; lvl++) {
-      const sib = newItemProof.siblings[lvl];
+      const sib = siblingsAfterNew[lvl];
       if ((idx & 1) === 0) {
         hash = poseidon2([hash, sib]);
       } else {
@@ -184,7 +223,7 @@ export class IndexedMerkleTree {
     }
 
     // That must be exactly the "new" sibling in the updated-prev proof
-    return hash === updSibs[diffIdx];
+    return hash === siblingsAfterOg[diffIdx];
   }
 
 }

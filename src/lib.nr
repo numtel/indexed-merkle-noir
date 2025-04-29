@@ -65,17 +65,14 @@ fn verifyInsertionProof(
     verifyProof(ogLeafIdx, ogLeafKey, newLeafIdx, newLeafKey, ogLeafValue, rootAfter, siblingsAfterOg);
     verifyProof(newLeafIdx, newLeafKey, ogLeafNextIdx, ogLeafNextKey, newLeafValue, rootAfter, siblingsAfterNew);
 
-    // 2) After insertion, both "new-item" and "updated-prev" must land on the same root
-    // non-op here since it's the same input signal
-
-    // 3) The "after" proofs must have equal length
+    // 2) The "after" proofs must have equal length
     assert(siblingsAfterOg.len() == siblingsAfterNew.len());
     //    And the "before" proof's length must be either the same (no height change)
     //    or exactly one less (height grew by 1, e.g. first insertion or crossing a power-of-two).
     assert((siblingsBefore.len() == siblingsAfterNew.len())
         | (siblingsBefore.len() + 1 == siblingsAfterNew.len()));
 
-    // 4) Find the first level at which the predecessor's proof changed
+    // 3) Find the first level at which the predecessor's proof changed
     let mut diffIdx = 0;
     for i in 0..MAX_DEPTH {
         if i < siblingsBefore.len() {
@@ -97,7 +94,7 @@ fn verifyInsertionProof(
             assert(siblingsBefore[i] == siblingsAfterOg[i]);
         }
     }
-    // 5) Now recompute the "sub-root" of the new leaf up to diffIdx, and
+    // 4) Now recompute the "sub-root" of the new leaf up to diffIdx, and
     //    check it matches the sibling that was injected into the prev-proof.
     let mut hash = std::hash::poseidon::bn254::hash_4([
         newLeafKey as Field, ogLeafNextIdx as Field, ogLeafNextKey as Field, newLeafValue

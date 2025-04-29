@@ -37,7 +37,7 @@ const tree = new IndexedMerkleTree();
 // Insert an item (key must be bigint > 0, value must be bigint >= 0)
 tree.insertItem(10n, 345n);
 tree.insertItem(20n, 234n);
-tree.insertItem(30n, 123n);
+const transitionProof = tree.insertItem(30n, 123n);
 
 // Generate proof for a key
 const proof = tree.generateProof(20n);
@@ -49,6 +49,7 @@ const exclusionProof = tree.generateExclusionProof(13n);
 
 // Verify a proof
 const isValid = tree.verifyProof(proof);
+const isValidInsert = tree.verifyInsertionProof(transitionProof);
 // Returns true if proof is valid
 ```
 
@@ -58,7 +59,7 @@ const isValid = tree.verifyProof(proof);
 - **insertItem(key, value)**: Inserts a new item with the given key and value
   - `key`: bigint greater than 0
   - `value`: bigint greater than or equal to 0
-  - Returns `{exProof, newItemProof, updatedPrevProof}` Insertion proof data
+  - Returns insertion proof data object
 - **generateProof(key)**: Generates a Merkle proof for the given key
   - Returns `{leafIdx, leaf, root, siblings}`
 - **generateExclusionProof(key)**: Generates a proof that a key doesn't exist in the tree
