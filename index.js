@@ -24,6 +24,8 @@ export class IndexedMerkleTree {
       }
     }
 
+    const exProof = this.generateProof(prevKey);
+
     items.push({
       key,
       nextIdx: items[prevIdx].nextIdx,
@@ -32,6 +34,11 @@ export class IndexedMerkleTree {
     });
     items[prevIdx].nextKey = key;
     items[prevIdx].nextIdx = items.length - 1;
+
+    const newItemProof = this.generateProof(key);
+    const updatedPrevProof = this.generateProof(prevKey);
+
+    return { exProof, newItemProof, updatedPrevProof };
   }
 
   generateProof(key) {
@@ -100,5 +107,85 @@ export class IndexedMerkleTree {
 
     return hash === proof.root;
   }
+
+  verifyInsertionProof({ exProof, newItemProof, updatedPrevProof }) {
+    // 1) All three proofs must be individually valid
+    if (
+      !this.verifyProof(exProof) ||
+      !this.verifyProof(newItemProof) ||
+      !this.verifyProof(updatedPrevProof)
+    ) {
+      return false;
+    }
+
+    // 2) After insertion, both "new‐item" and "updated‐prev" must land on the same root
+    if (newItemProof.root !== updatedPrevProof.root) {
+      return false;
+    }
+
+    const exSibs = exProof.siblings;
+    const newSibs = newItemProof.siblings;
+    const updSibs = updatedPrevProof.siblings;
+
+    // 3) The "after" proofs must have equal length
+    if (newSibs.length !== updSibs.length) {
+      return false;
+    }
+    //    And the "before" proof’s length must be either the same (no height change)
+    //    or exactly one less (height grew by 1, e.g. first insertion or crossing a power‐of‐two).
+    if (
+      !(
+        exSibs.length === newSibs.length ||
+        exSibs.length + 1 === newSibs.length
+      )
+    ) {
+      return false;
+    }
+
+    // 4) Find the first level at which the predecessor’s proof changed
+    let diffIdx = -1;
+    for (let i = 0; i < newSibs.length; i++) {
+      const before = exSibs[i];
+      const after  = updSibs[i];
+      if (before !== after) {
+        diffIdx = i;
+        break;
+      }
+    }
+    // We must see exactly one "first" change
+    if (diffIdx < 0) {
+      return false;
+    }
+    // And ensure nothing *before* that level changed
+    for (let i = 0; i < diffIdx; i++) {
+      if (exSibs[i] !== updSibs[i]) {
+        return false;
+      }
+    }
+
+    // 5) Now recompute the "sub‐root" of the new leaf up to diffIdx, and
+    //    check it matches the sibling that was injected into the prev-proof.
+    let hash = poseidon4([
+      newItemProof.leaf.key,
+      newItemProof.leaf.nextIdx,
+      newItemProof.leaf.nextKey,
+      newItemProof.leaf.value
+    ]);
+    let idx  = newItemProof.leafIdx;
+
+    for (let lvl = 0; lvl < diffIdx; lvl++) {
+      const sib = newItemProof.siblings[lvl];
+      if ((idx & 1) === 0) {
+        hash = poseidon2([hash, sib]);
+      } else {
+        hash = poseidon2([sib, hash]);
+      }
+      idx >>= 1;
+    }
+
+    // That must be exactly the "new" sibling in the updated-prev proof
+    return hash === updSibs[diffIdx];
+  }
+
 }
 

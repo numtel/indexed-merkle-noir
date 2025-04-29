@@ -14,7 +14,8 @@ describe('IndexedMerkleTree', () => {
     it(`should generate and verify proof of ${size} items correctly matrix`, () => {
       const tree = new IndexedMerkleTree;
       for(let i = 1; i < size; i++) {
-        tree.insertItem(10n * BigInt(i), 123n * BigInt(i));
+        const transition = tree.insertItem(10n * BigInt(i), 123n * BigInt(i));
+        ok(tree.verifyInsertionProof(transition));
       }
 
       for(let i = 1; i < size; i++) {
@@ -29,23 +30,22 @@ describe('IndexedMerkleTree', () => {
     });
   }
 
-  it('should generate a proof of inserting a new item (state transition)', () => {
+  it('should generate and verify insertion proof from further leaves', () => {
     const tree = new IndexedMerkleTree;
+
+    // Insert items such that the test item won't be neigbor to its previous item
     tree.insertItem(20n, 234n);
+    tree.insertItem(22n, 234n);
+    tree.insertItem(23n, 234n);
+    tree.insertItem(24n, 234n);
+    tree.insertItem(25n, 234n);
+    tree.insertItem(26n, 234n);
+    tree.insertItem(27n, 234n);
+    tree.insertItem(28n, 234n);
 
-    const exProof = tree.generateExclusionProof(30n);
-    ok(tree.verifyProof(exProof));
+    const transition = tree.insertItem(21n, 123n);
 
-    // Perform the state change
-    tree.insertItem(30n, 123n);
-
-    const proof = tree.generateProof(30n);
-    ok(tree.verifyProof(proof));
-
-    // TODO How to verify this transition without recreating the tree in the circuit?
-    console.log('EXCLUSION', exProof)
-    console.log('INCLUSION', proof);
-
+    ok(tree.verifyInsertionProof(transition))
   });
 });
 

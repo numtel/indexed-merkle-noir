@@ -45,6 +45,80 @@ fn verifyExclusionProof(
     }
 }
 
+fn verifyInsertionProof(
+    ogLeafIdx: u32,
+    ogLeafKey: u64,
+    ogLeafNextIdx: u32,
+    ogLeafNextKey: u64,
+    ogLeafValue: Field,
+    newLeafIdx: u32,
+    newLeafKey: u64,
+    newLeafValue: Field,
+    rootBefore: Field,
+    rootAfter: Field,
+    siblingsBefore: [Field],
+    siblingsAfterOg: [Field],
+    siblingsAfterNew: [Field]
+) {
+    // 1) All three proofs must be individually valid
+    verifyProof(ogLeafIdx, ogLeafKey, ogLeafNextIdx, ogLeafNextKey, ogLeafValue, rootBefore, siblingsBefore);
+    verifyProof(ogLeafIdx, ogLeafKey, newLeafIdx, newLeafKey, ogLeafValue, rootAfter, siblingsAfterOg);
+    verifyProof(newLeafIdx, newLeafKey, ogLeafNextIdx, ogLeafNextKey, newLeafValue, rootAfter, siblingsAfterNew);
+
+    // 2) After insertion, both "new-item" and "updated-prev" must land on the same root
+    // non-op here since it's the same input signal
+
+    // 3) The "after" proofs must have equal length
+    assert(siblingsAfterOg.len() == siblingsAfterNew.len());
+    //    And the "before" proof's length must be either the same (no height change)
+    //    or exactly one less (height grew by 1, e.g. first insertion or crossing a power-of-two).
+    assert((siblingsBefore.len() == siblingsAfterNew.len())
+        | (siblingsBefore.len() + 1 == siblingsAfterNew.len()));
+
+    // 4) Find the first level at which the predecessor's proof changed
+    let mut diffIdx = 0;
+    for i in 0..MAX_DEPTH {
+        if i < siblingsBefore.len() {
+            if (diffIdx == 0) & (siblingsBefore[i] != siblingsAfterOg[i]) {
+                diffIdx = i;
+            }
+        }
+    }
+    // XXX: Added this since can't lazily evaluate array index above
+    // TODO test that this works for all combinations of leaf indices (especially first insert)
+    if diffIdx == 0 {
+        diffIdx = siblingsBefore.len();
+    }
+    // We must see exactly one "first" change
+    assert(diffIdx > 0);
+    // And ensure nothing *before* that level changed
+    for i in 0..MAX_DEPTH {
+        if i < siblingsBefore.len() {
+            assert(siblingsBefore[i] == siblingsAfterOg[i]);
+        }
+    }
+    // 5) Now recompute the "sub-root" of the new leaf up to diffIdx, and
+    //    check it matches the sibling that was injected into the prev-proof.
+    let mut hash = std::hash::poseidon::bn254::hash_4([
+        newLeafKey as Field, ogLeafNextIdx as Field, ogLeafNextKey as Field, newLeafValue
+    ]);
+    let mut idx = newLeafIdx;
+    for i in 0..MAX_DEPTH {
+        if i < diffIdx {
+            let is_right = ((idx & 1) == 0) as bool;
+            let (hash_left, hash_right) = if is_right {
+                (hash, siblingsAfterNew[i])
+            } else {
+                (siblingsAfterNew[i], hash)
+            };
+            hash = std::hash::poseidon::bn254::hash_2([hash_left, hash_right]);
+            idx >>= 1;
+        }
+    };
+    assert(hash == siblingsAfterOg[diffIdx]);
+
+}
+
 #[test]
 fn test_verifyProof() {
     // Values from javascript test case
@@ -83,5 +157,29 @@ fn test_verifyExclusionProofPastEnd() {
             21006214261944761893288216955619891277091894074878556242157792523868647089882
         ],
         33
+    );
+}
+
+#[test]
+fn test_verifyInsertionProof() {
+    // Values from javascript test case
+    verifyInsertionProof(
+        3, 30, 0, 0, 369, 4, 40, 492,
+        2571980431646512226537973716044286349345455446077442026376592565776796645988,
+        2963872233248354362054425041526741667834940426492725195869776079054072427609,
+        [
+            21811187948234496653038156303271104363293342331973867763419216898445358052835,
+            19105469470815259923778736722894778945358156111821148490927046754068671364855
+        ],
+        [
+            21811187948234496653038156303271104363293342331973867763419216898445358052835,
+            19105469470815259923778736722894778945358156111821148490927046754068671364855,
+            21456886111827427998357836449341111815053179374366685590435429032039554303766
+        ],
+        [
+            2351654555892372227640888372176282444150254868378439619268573230312091195718,
+            5723720832300544730179969191054372086051633243972178196193101286943139171509,
+            14016517550536154496576705664688405808854048460765765188269560158066581900513
+        ]
     );
 }

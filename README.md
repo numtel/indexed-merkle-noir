@@ -8,7 +8,7 @@
 
 ### TODO
 
-* State transition proofs: insert and update
+* Integration test using noir_wasm
 
 ## Installation
 
@@ -58,11 +58,14 @@ const isValid = tree.verifyProof(proof);
 - **insertItem(key, value)**: Inserts a new item with the given key and value
   - `key`: bigint greater than 0
   - `value`: bigint greater than or equal to 0
+  - Returns `{exProof, newItemProof, updatedPrevProof}` Insertion proof data
 - **generateProof(key)**: Generates a Merkle proof for the given key
   - Returns `{leafIdx, leaf, root, siblings}`
 - **generateExclusionProof(key)**: Generates a proof that a key doesn't exist in the tree
   - Returns proof for a neighboring key that proves the target key doesn't exist
 - **verifyProof(proof)**: Verifies a Merkle proof
+  - Returns `true` if valid, `false` otherwise
+- **verifyInsertionProof(insertionProof)**: Verifies an insertion proof
   - Returns `true` if valid, `false` otherwise
 
 ## Noir Library Functions
@@ -106,6 +109,33 @@ This function verifies:
 1. The proof is valid (calls `verifyProof`)
 2. The excluded key is greater than the leaf key
 3. The excluded key is less than the next key (if next key exists)
+
+### verifyInsertionProof
+
+Verifies that the tree root state transition is valid for the given insertion
+
+```noir
+fn verifyInsertionProof(
+    ogLeafIdx: u32,
+    ogLeafKey: u64,
+    ogLeafNextIdx: u32,
+    ogLeafNextKey: u64,
+    ogLeafValue: Field,
+    newLeafIdx: u32,
+    newLeafKey: u64,
+    newLeafValue: Field,
+    rootBefore: Field,
+    rootAfter: Field,
+    siblingsBefore: [Field],
+    siblingsAfterOg: [Field],
+    siblingsAfterNew: [Field]
+)
+```
+
+This function verifies:
+1. All three individual proofs must be valid
+2. Sibling arrays for both leaves are same length
+3. The "sub-roots" of both changed leaves match
 
 ## License
 
