@@ -1,11 +1,11 @@
 {
   "name": "indexed-merkle-noir",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "todo": "bash -c \"grep -rn 'TODO' --exclude-dir={node_modules,build,cache,lib,out,target} --exclude={*.min*,*.swp,package.json,solc} *\"",
-    "test": "mocha"
+    "test": "mocha -t 40000 --exit"
   },
   "author": "numtel <ben@latenightsketches.com>",
   "license": "MIT",
@@ -14,6 +14,9 @@
     "poseidon-lite": "^0.3.0"
   },
   "devDependencies": {
+    "@aztec/bb.js": "0.84.0",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
+    "@noir-lang/noir_wasm": "1.0.0-beta.3",
     "mocha": "^11.1.0"
   }
 }

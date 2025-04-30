@@ -1,0 +1,7 @@
+[package]
+name = "verifyProof"
+type = "bin"
+authors = [""]
+
+[dependencies]
+indexed_merkle = { path = "../../.." }

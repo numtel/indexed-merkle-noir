@@ -8,7 +8,7 @@
 
 ### TODO
 
-* Integration test using noir_wasm
+* Multi-inserts
 
 ## Installation
 
@@ -85,7 +85,7 @@ fn verifyProof(
     leafNextKey: u64,
     leafValue: Field,
     root: Field,
-    siblings: [Field]
+    siblings: [Field; 32]
 )
 ```
 
@@ -101,7 +101,7 @@ fn verifyExclusionProof(
     leafNextKey: u64,
     leafValue: Field,
     root: Field,
-    siblings: [Field],
+    siblings: [Field; 32],
     excludedKey: u64
 )
 ```
@@ -127,9 +127,9 @@ fn verifyInsertionProof(
     newLeafValue: Field,
     rootBefore: Field,
     rootAfter: Field,
-    siblingsBefore: [Field],
-    siblingsAfterOg: [Field],
-    siblingsAfterNew: [Field]
+    siblingsBefore: [Field; 32],
+    siblingsAfterOg: [Field; 32],
+    siblingsAfterNew: [Field; 32]
 )
 ```
 
