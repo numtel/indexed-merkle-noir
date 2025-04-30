@@ -9,8 +9,8 @@ fn main(
     newLeafIdx: u32,
     newLeafKey: u64,
     newLeafValue: Field,
-    rootBefore: Field,
-    rootAfter: Field,
+    rootBefore: pub Field,
+    rootAfter: pub Field,
     siblingsBefore: [Field; indexed_merkle::MAX_DEPTH],
     siblingsAfterOg: [Field; indexed_merkle::MAX_DEPTH],
     siblingsAfterNew: [Field; indexed_merkle::MAX_DEPTH]
